@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-const model = "gemini-2.5-flash";
+const model = "gemini-2.5-flash-lite";
 
 const API_KEYS = [
   process.env.GEMINI_API_KEY_1,
