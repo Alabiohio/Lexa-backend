@@ -1,48 +1,28 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
-import axios from "axios";
-import FormData from "form-data";
+import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
+import fs from "fs";
 
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+export async function transcribeWithElevenLabs(filePath: string) {
+  // Initialize ElevenLabs client with your API key
+  const client = new ElevenLabsClient({
+    apiKey: process.env.ELEVENLABS_API_KEY!,
+    environment: "https://api.elevenlabs.io",
+  });
 
   try {
-    // Expo sends multipart/form-data → Vercel parses it automatically
-    const file = (req as any).files?.audio;
+    // Read audio file into a buffer
+    const audioFile = fs.readFileSync(filePath);
 
-    if (!file) {
-      return res.status(400).json({ error: "No audio file received" });
-    }
-
-    const elevenForm = new FormData();
-    elevenForm.append("file", file.data, {
-      filename: file.name || "voice.m4a",
-      contentType: file.mimetype,
+    // Send to ElevenLabs speech-to-text
+    const result = await client.speechToText.convert({
+      file: audioFile,           // required
+      modelId: "scribe_v2",       // recommended STT model
+      languageCode: "en",         // ISO 639-1 (optional, can auto-detect)
     });
-    elevenForm.append("model_id", "scribe_v1");
-    elevenForm.append("language", "en");
 
-    const elevenRes = await axios.post(
-      "https://api.elevenlabs.io/v1/speech-to-text",
-      elevenForm,
-      {
-        headers: {
-          ...elevenForm.getHeaders(),
-          "xi-api-key": process.env.ELEVENLABS_API_KEY!,
-        },
-        timeout: 60000,
-      }
-    );
-
-    return res.status(200).json({
-      transcription: elevenRes.data.text,
-    });
-  } catch (err: any) {
-    console.error("ElevenLabs STT error:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Transcription failed" });
+    console.log("Transcription text:", result.text);
+    return result.text ?? "";
+  } catch (error) {
+    console.error("ElevenLabs STT errors:", error);
+    throw error;
   }
 }
